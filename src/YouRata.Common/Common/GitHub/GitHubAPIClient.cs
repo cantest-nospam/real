@@ -70,6 +70,27 @@ public static class GitHubAPIClient
     }
 
     /// <summary>
+    /// Create an action variable
+    /// </summary>
+    /// <param name="environment"></param>
+    /// <param name="variableName"></param>
+    /// <param name="variableValue"></param>
+    /// <param name="logger"></param>
+    /// <returns>Success</returns>
+    public static bool CreateVariable(GitHubActionEnvironment environment, string variableName, string variableValue, Action<string> logger)
+    {
+        if (!HasRemainingCalls(environment)) throw new MilestoneException("GitHub API rate limit exceeded");
+        IApiConnection apiCon = GetApiConnection(environment.ApiToken);
+
+        RepositoryVariablesClient varClient = new RepositoryVariablesClient(apiCon);
+        string[] repository = environment.EnvGitHubRepository.Split("/");
+        Variable newVariable = new Variable(variableName, variableValue);
+        Action createVariable = (() => { varClient.Create(repository[0], repository[1], newVariable).Wait(); });
+        GitHubRetryHelper.RetryCommand(environment, createVariable, logger);
+        return true;
+    }
+
+    /// <summary>
     /// Delete an action secret
     /// </summary>
     /// <param name="environment"></param>
