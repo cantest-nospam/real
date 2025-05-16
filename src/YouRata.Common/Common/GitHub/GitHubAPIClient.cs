@@ -3,8 +3,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
+using Google.Apis.YouTube.v3.Data;
 using Octokit;
 using Sodium;
 using YouRata.Common.Milestone;
@@ -88,6 +90,41 @@ public static class GitHubAPIClient
         Action createVariable = (() => { varClient.Create(repository[0], repository[1], newVariable).Wait(); });
         GitHubRetryHelper.RetryCommand(environment, createVariable, logger);
         return true;
+    }
+
+    /// <summary>
+    /// Get changed files between commits
+    /// </summary>
+    /// <param name="environment"></param>
+    /// <param name="baseCommit"></param>
+    /// <param name="filePath"></param>
+    /// <param name="logger"></param>
+    /// <returns></returns>
+    /// <exception cref="MilestoneException"></exception>
+    public static List<GitHubCommitFile> GetCommitChanges(GitHubActionEnvironment environment, string baseCommit, string filePath, Action<string> logger)
+    {
+        if (!HasRemainingCalls(environment)) throw new MilestoneException("GitHub API rate limit exceeded");
+        IApiConnection apiCon = GetApiConnection(environment.GitHubToken);
+
+        if (environment.EnvGitHubSha.Equals(baseCommit))
+            throw new MilestoneException($"Could not compare GitHub commit {baseCommit} against itself");
+        RepositoryCommitsClient comClient = new RepositoryCommitsClient(apiCon);
+        string[] repository = environment.EnvGitHubRepository.Split("/");
+        Func<CompareResult> compareCommits = (() =>
+        {
+            return comClient.Compare(repository[0], repository[1], baseCommit, environment.EnvGitHubSha).Result;
+        });
+        CompareResult? compareCommitsResult = GitHubRetryHelper.RetryCommand(environment, compareCommits, logger);
+
+        if (compareCommitsResult == null || compareCommitsResult.TotalCommits == 0)
+            throw new MilestoneException($"Could not find any commits between {baseCommit} and {environment.EnvGitHubSha} in GitHub");
+        List<GitHubCommitFile> changedFiles = new List<GitHubCommitFile>();
+        foreach (GitHubCommitFile commitFile in compareCommitsResult.Files.Where(file => file.Filename.StartsWith(filePath, StringComparison.OrdinalIgnoreCase)))
+        {
+            if (commitFile.Status.Equals("modified"))
+                changedFiles.Add(commitFile);
+        }
+        return changedFiles;
     }
 
     /// <summary>

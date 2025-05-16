@@ -10,6 +10,7 @@ using Google.Apis.Auth.OAuth2.Flows;
 using Google.Apis.Auth.OAuth2.Responses;
 using Google.Apis.YouTube.v3;
 using Google.Apis.YouTube.v3.Data;
+using Octokit;
 using YouRata.Common;
 using YouRata.Common.ActionReport;
 using YouRata.Common.Configuration;
@@ -21,6 +22,7 @@ using YouRata.YouTubeSync.ConflictMonitor;
 using YouRata.YouTubeSync.ErrataBulletin;
 using YouRata.YouTubeSync.Workflow;
 using YouRata.YouTubeSync.YouTube;
+using YouRata.YouTubeSync.YouTubeProcess;
 using static YouRata.Common.Proto.MilestoneActionIntelligence.Types;
 
 /// ---------------------------------------------------------------------------------------------
@@ -65,68 +67,87 @@ using (YouTubeSyncCommunicationClient client = new YouTubeSyncCommunicationClien
         List<string> processedVideos = new List<string>();
         using (YouTubeService ytService = YouTubeServiceHelper.GetService(workflow, userCred))
         {
-            // Get the videos to ignore from the playlist(s)
-            List<ResourceId> ignoreVideos = YouTubePlaylistHelper.GetPlaylistVideos(config.YouTube, milestoneInt, ytService, client);
-            // Get recently published videos
-            List<Video> videoList =
-                YouTubeVideoHelper.GetRecentChannelVideos(config.YouTube, ignoreVideos, milestoneInt, ytService, client);
-            List<Video> oustandingVideoList = new List<Video>();
-            if (milestoneInt.HasOutstandingVideos)
+            // Stop if this is not a routine video scan
+            if (YouTubeActionGatekeeper.CanStartVideoUpdate(actionEnvironment))
             {
-                // Get any older videos not picked up by the last run
-                oustandingVideoList =
-                    YouTubeVideoHelper.GetOutstandingChannelVideos(config.YouTube, ignoreVideos, milestoneInt, ytService, client);
-                videoList.AddRange(oustandingVideoList
-                    .Where(outVideo => videoList.FirstOrDefault(recentVideo => recentVideo.Id == outVideo.Id) == null).ToList());
-            }
-
-            foreach (Video video in videoList)
-            {
-                if (video.ContentDetails == null) continue;
-                if (video.Snippet == null) continue;
-                if (processedVideos.Contains(video.Id)) continue;
-                // Build a path to the new errata bulletin
-                string errataBulletinPath = $"{YouRataConstants.ErrataRootDirectory}" +
-                                            $"{video.Id}.md";
-                if (!Path.Exists(Path.Combine(workflow.Workspace, errataBulletinPath)))
+                // Get the videos to ignore from the playlist(s)
+                List<ResourceId> ignoreVideos = YouTubePlaylistHelper.GetPlaylistVideos(config.YouTube, milestoneInt, ytService, client);
+                // Get recently published videos
+                List<Video> videoList =
+                    YouTubeVideoHelper.GetRecentChannelVideos(config.YouTube, ignoreVideos, milestoneInt, ytService, client);
+                List<Video> oustandingVideoList = new List<Video>();
+                if (milestoneInt.HasOutstandingVideos)
                 {
-                    // Errata bulletin file does not exist in our checkout, build a new one
-                    ErrataBulletinBuilder errataBulletinBuilder = ErrataBulletinFactory.CreateBuilder(video, config.ErrataBulletin);
-                    // Add the file to the repository
-                    if (GitHubAPIClient.CreateContentFile(actionEnvironment,
-                            errataBulletinBuilder.SnippetTitle,
-                            errataBulletinBuilder.Build(),
-                            errataBulletinPath,
-                            client.LogMessage))
+                    // Get any older videos not picked up by the last run
+                    oustandingVideoList =
+                        YouTubeVideoHelper.GetOutstandingChannelVideos(config.YouTube, ignoreVideos, milestoneInt, ytService, client);
+                    videoList.AddRange(oustandingVideoList
+                        .Where(outVideo => videoList.FirstOrDefault(recentVideo => recentVideo.Id == outVideo.Id) == null).ToList());
+                }
+
+                foreach (Video video in videoList)
+                {
+                    if (video.ContentDetails == null) continue;
+                    if (video.Snippet == null) continue;
+                    if (processedVideos.Contains(video.Id)) continue;
+                    // Build a path to the new errata bulletin
+                    string errataBulletinPath = $"{YouRataConstants.ErrataRootDirectory}" +
+                                                $"{video.Id}.md";
+                    if (!Path.Exists(Path.Combine(workflow.Workspace, errataBulletinPath)))
                     {
-                        client.Keepalive();
-                        if (!config.ActionCutOuts.DisableYouTubeVideoUpdate)
+                        // Errata bulletin file does not exist in our checkout, build a new one
+                        ErrataBulletinBuilder errataBulletinBuilder = ErrataBulletinFactory.CreateBuilder(video, config.ErrataBulletin);
+                        // Add the file to the repository
+                        if (GitHubAPIClient.CreateContentFile(actionEnvironment,
+                                errataBulletinBuilder.SnippetTitle,
+                                errataBulletinBuilder.Build(),
+                                errataBulletinPath,
+                                client.LogMessage))
                         {
-                            // Create a link for YouTube visitors to access the errata page
-                            string erattaLink = YouTubeDescriptionErattaPublisher.GetErrataLink(actionEnvironment, errataBulletinPath);
-                            // Append the link to the description
-                            string newDescription =
-                                YouTubeDescriptionErattaPublisher.GetAmendedDescription(video.Snippet.Description, erattaLink,
-                                    config.YouTube);
-                            if (newDescription.Length <= YouTubeConstants.MaxDescriptionLength)
-                            {
-                                // Enough characters are left to update the description
-                                YouTubeVideoHelper.UpdateVideoDescription(video, newDescription, milestoneInt, ytService, client);
-                            }
-
                             client.Keepalive();
-                        }
-                    }
+                            if (!config.ActionCutOuts.DisableYouTubeVideoUpdate)
+                            {
+                                // Create a link for YouTube visitors to access the errata page
+                                string erattaLink = YouTubeDescriptionErattaPublisher.GetErrataLink(actionEnvironment, errataBulletinPath);
+                                // Append the link to the description
+                                string newDescription =
+                                    YouTubeDescriptionErattaPublisher.GetAmendedDescription(video.Snippet.Description, erattaLink,
+                                        config.YouTube);
+                                if (newDescription.Length <= YouTubeConstants.MaxDescriptionLength)
+                                {
+                                    // Enough characters are left to update the description
+                                    YouTubeVideoHelper.UpdateVideoDescription(video, newDescription, milestoneInt, ytService, client);
+                                }
 
-                    processedVideos.Add(video.Id);
-                    milestoneInt.VideosProcessed++;
+                                client.Keepalive();
+                            }
+                        }
+
+                        processedVideos.Add(video.Id);
+                        milestoneInt.VideosProcessed++;
+                    }
+                }
+
+                // Save status to the milestone intelligence
+                milestoneInt.HasOutstandingVideos = (oustandingVideoList.Count > 0 || milestoneInt.LastQueryTime == 0);
+                milestoneInt.LastQueryTime = DateTimeOffset.Now.ToUnixTimeSeconds();
+                client.SetMilestoneActionIntelligence(milestoneInt);
+            }
+            // Stop if this is not an errata publication
+            if (YouTubeActionGatekeeper.CanStartCorrections(actionEnvironment))
+            {
+                if (!config.ActionCutOuts.DisableYouTubeCorrections)
+                {
+                    List<GitHubCommitFile> pushedErrataFiles = GitHubAPIClient.GetCommitChanges(actionEnvironment, workflow.EventBefore, YouRataConstants.ErrataRootDirectory, client.LogMessage);
+                    foreach (GitHubCommitFile pushedErrataFile in pushedErrataFiles)
+                    {
+                        ContentHelper fileHelper = new ContentHelper();
+                        string? errataContent = fileHelper.GetTextContent(pushedErrataFile.Filename, client.LogMessage);
+                        if (errataContent == null) continue;
+                        Console.WriteLine(errataContent);
+                    }
                 }
             }
-
-            // Save status to the milestone intelligence
-            milestoneInt.HasOutstandingVideos = (oustandingVideoList.Count > 0 || milestoneInt.LastQueryTime == 0);
-            milestoneInt.LastQueryTime = DateTimeOffset.Now.ToUnixTimeSeconds();
-            client.SetMilestoneActionIntelligence(milestoneInt);
         }
     }
     catch (Exception ex)

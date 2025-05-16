@@ -30,4 +30,8 @@ public class ActionCutOutConfiguration : BaseValidatableConfiguration
     // Disable updating the YouTube video description
     [Required]
     public bool DisableYouTubeVideoUpdate { get; set; }
+
+    // Disable updating the YouTube video corrections
+    [Required]
+    public bool DisableYouTubeCorrections { get; set; }
 }
