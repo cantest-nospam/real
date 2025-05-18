@@ -157,6 +157,24 @@ internal static class YouTubeVideoHelper
         if (forbidden) throw new MilestoneException("YouTube API update video forbidden");
     }
 
+    internal static Video? GetVideo(string videoId, YouTubeSyncActionIntelligence intelligence, YouTubeService service, YouTubeSyncCommunicationClient client)
+    {
+        if (!YouTubeQuotaHelper.HasRemainingCalls(intelligence)) throw new MilestoneException("YouTube API rate limit exceeded");
+        VideosResource.ListRequest videoRequest = new VideosResource.ListRequest(service, new[] { YouTubeConstants.RequestSnippetPart });
+        if (string.IsNullOrEmpty(videoId)) return null;
+        // Build the list request
+        videoRequest.Id = videoId;
+        videoRequest.MaxResults = 1;
+        // Construct a GetVideoResponse function
+        Func<VideoListResponse> getVideoResponse = (() => { return videoRequest.Execute(); });
+        VideoListResponse? videoResponse = YouTubeRetryHelper.RetryCommand(intelligence, YouTubeConstants.VideoListQuotaCost,
+            getVideoResponse, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10), client.LogMessage);
+        client.Keepalive();
+        if (videoResponse == null) throw new MilestoneException($"Could not get YouTube video {videoRequest.Id}");
+        Video videoDetails = videoResponse.Items.First();
+        return videoDetails;
+    }
+
     /// <summary>
     /// Get all videos for a channel published between two times
     /// </summary>

@@ -20,8 +20,10 @@ using YouRata.Common.Proto;
 using YouRata.Common.YouTube;
 using YouRata.YouTubeSync.ConflictMonitor;
 using YouRata.YouTubeSync.ErrataBulletin;
+using YouRata.YouTubeSync.PublishedErrata;
 using YouRata.YouTubeSync.Workflow;
 using YouRata.YouTubeSync.YouTube;
+using YouRata.YouTubeSync.YouTubeCorrections;
 using YouRata.YouTubeSync.YouTubeProcess;
 using static YouRata.Common.Proto.MilestoneActionIntelligence.Types;
 
@@ -139,11 +141,30 @@ using (YouTubeSyncCommunicationClient client = new YouTubeSyncCommunicationClien
                 if (!config.ActionCutOuts.DisableYouTubeCorrections)
                 {
                     List<GitHubCommitFile> pushedErrataFiles = GitHubAPIClient.GetCommitChanges(actionEnvironment, workflow.EventBefore, YouRataConstants.ErrataRootDirectory, client.LogMessage);
+                    client.Keepalive();
                     foreach (GitHubCommitFile pushedErrataFile in pushedErrataFiles)
                     {
                         ContentHelper fileHelper = new ContentHelper();
                         string? errataContent = fileHelper.GetTextContent(pushedErrataFile.Filename, client.LogMessage);
                         if (errataContent == null) continue;
+                        PublishedVideoErrata errataList = PublishedVideoErrata.BuildFromBulletin(errataContent);
+                        YouTubeCorrectionBuilder correctionBuilder = new YouTubeCorrectionBuilder(config.YouTube, errataList);
+                        string videoId = Path.GetFileNameWithoutExtension(pushedErrataFile.Filename);
+                        if (string.IsNullOrEmpty(videoId)) continue;
+                        Video? video = YouTubeVideoHelper.GetVideo(videoId, milestoneInt, ytService, client);
+                        client.Keepalive();
+                        if (video == null) continue;
+                        string newDescription = YouTubeDescriptionCorrectionsPublisher.GetUpdatedDescription(video.Snippet.Description, correctionBuilder.Build(), config.YouTube);
+                        if (newDescription.Length <= YouTubeConstants.MaxDescriptionLength)
+                        {
+                            // Enough characters are left to update the description
+                            YouTubeVideoHelper.UpdateVideoDescription(video, newDescription, milestoneInt, ytService, client);
+                        }
+
+                        client.Keepalive();
+
+
+                        Console.WriteLine(videoId);
                         Console.WriteLine(errataContent);
                     }
                 }
