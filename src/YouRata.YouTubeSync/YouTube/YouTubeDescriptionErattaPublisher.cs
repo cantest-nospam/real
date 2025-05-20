@@ -21,7 +21,7 @@ internal static class YouTubeDescriptionErattaPublisher
         if ((errataNotice.Length + description.Length) > YouTubeConstants.MaxDescriptionLength && config.TruncateDescriptionOverflow)
         {
             // Old description is too long to add errata link text, truncate it
-            description = description.Substring(0, description.Length - errataNotice.Length);
+            description = description.Substring(0, Math.Max(0, description.Length - errataNotice.Length));
         }
 
         switch (config.ErattaLinkLocation)

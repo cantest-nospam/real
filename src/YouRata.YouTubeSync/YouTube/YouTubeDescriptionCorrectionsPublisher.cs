@@ -32,8 +32,8 @@ namespace YouRata.YouTubeSync.YouTube
                 }
                 if ((corrections.Length + description.Length) > YouTubeConstants.MaxDescriptionLength && config.TruncateDescriptionOverflow)
                 {
-                    // Old description is too long to add errata link text, truncate it
-                    description = description.Substring(0, description.Length - corrections.Length);
+                    // Old description is too long to add corrections text, truncate it
+                    description = description.Substring(0, Math.Max(0, description.Length - corrections.Length));
                 }
             }
             return description + Environment.NewLine + corrections;

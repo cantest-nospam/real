@@ -140,7 +140,11 @@ using (YouTubeSyncCommunicationClient client = new YouTubeSyncCommunicationClien
             {
                 if (!config.ActionCutOuts.DisableYouTubeCorrections)
                 {
-                    List<GitHubCommitFile> pushedErrataFiles = GitHubAPIClient.GetCommitChanges(actionEnvironment, workflow.EventBefore, YouRataConstants.ErrataRootDirectory, client.LogMessage);
+                    List<GitHubCommitFile> pushedErrataFiles = GitHubAPIClient.GetCommitChanges(
+                        actionEnvironment,
+                        workflow.EventBefore,
+                        YouRataConstants.ErrataRootDirectory,
+                        client.LogMessage);
                     client.Keepalive();
                     foreach (GitHubCommitFile pushedErrataFile in pushedErrataFiles)
                     {
@@ -154,18 +158,17 @@ using (YouTubeSyncCommunicationClient client = new YouTubeSyncCommunicationClien
                         Video? video = YouTubeVideoHelper.GetVideo(videoId, milestoneInt, ytService, client);
                         client.Keepalive();
                         if (video == null) continue;
-                        string newDescription = YouTubeDescriptionCorrectionsPublisher.GetUpdatedDescription(video.Snippet.Description, correctionBuilder.Build(), config.YouTube);
+                        string newDescription =
+                            YouTubeDescriptionCorrectionsPublisher.GetUpdatedDescription(video.Snippet.Description, correctionBuilder.Build(),
+                                config.YouTube);
                         if (newDescription.Length <= YouTubeConstants.MaxDescriptionLength)
                         {
                             // Enough characters are left to update the description
-                            YouTubeVideoHelper.UpdateVideoDescription(video, newDescription, milestoneInt, ytService, client);
+                            YouTubeVideoHelper.UpdateVideoDescription(video, newDescription, milestoneInt, ytService,
+                                client);
                         }
 
                         client.Keepalive();
-
-
-                        Console.WriteLine(videoId);
-                        Console.WriteLine(errataContent);
                     }
                 }
             }

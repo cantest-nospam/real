@@ -31,13 +31,15 @@ namespace YouRata.YouTubeSync.PublishedErrata
 
         private static List<string> SplitErrataLines(string rawBulletin)
         {
-            if (string.IsNullOrWhiteSpace(rawBulletin)) return new List<string>();
-            string[] bulletinLines = rawBulletin.Split(Environment.NewLine);
             List<string> errataLines = new List<string>();
+            if (string.IsNullOrWhiteSpace(rawBulletin)) return errataLines;
+            // Each line should represent a single bulletin
+            string[] bulletinLines = rawBulletin.Split(Environment.NewLine);
             StringBuilder errataLineBuilder = new StringBuilder();
             foreach (string bulletinLine in bulletinLines)
             {
                 string bulletinData = bulletinLine.Trim();
+                // Each bulletin should have a time offset somewhere in the line
                 if (Regex.IsMatch(bulletinData, @"\d{1,2}(:\d{2}){1,2}\b"))
                 {
                     if (errataLineBuilder.Length > 0)
@@ -47,9 +49,14 @@ namespace YouRata.YouTubeSync.PublishedErrata
                     }
                     errataLineBuilder.Append(bulletinData);
                 }
-                else if (!string.IsNullOrWhiteSpace(bulletinData))
+                else
                 {
-                    errataLineBuilder.Append(" " + bulletinData);
+                    // A continuation of the previous line
+                    if (errataLineBuilder.Length > 0)
+                    {
+                        errataLineBuilder.Append(" ");
+                        errataLineBuilder.Append(bulletinData);
+                    }
                 }
             }
             // Add the last line if not already done
