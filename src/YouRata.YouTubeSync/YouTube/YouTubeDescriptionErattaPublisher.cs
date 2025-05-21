@@ -10,7 +10,7 @@ using YouRata.Common.YouTube;
 namespace YouRata.YouTubeSync.YouTube;
 
 /// <summary>
-/// Static methods for manipulating video descriptions
+/// Static methods for manipulating video descriptions to add errata links
 /// </summary>
 internal static class YouTubeDescriptionErattaPublisher
 {

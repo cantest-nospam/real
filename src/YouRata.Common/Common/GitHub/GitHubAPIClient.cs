@@ -3,10 +3,8 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
-using Google.Apis.YouTube.v3.Data;
 using Octokit;
 using Sodium;
 using YouRata.Common.Milestone;
@@ -224,7 +222,8 @@ public static class GitHubAPIClient
 
         UpsertRepositorySecret upsertValue = new UpsertRepositorySecret
         {
-            EncryptedValue = Convert.ToBase64String(sealedPublicKeyBox), KeyId = key.KeyId
+            EncryptedValue = Convert.ToBase64String(sealedPublicKeyBox),
+            KeyId = key.KeyId
         };
 
         return upsertValue;

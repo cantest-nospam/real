@@ -1,16 +1,18 @@
+// Copyright (c) 2023 battleship-systems.
+// Licensed under the MIT license.
+
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using YouRata.Common.Configuration.YouTube;
 using YouRata.Common.YouTube;
 
 namespace YouRata.YouTubeSync.YouTube
 {
+    /// <summary>
+    /// Static methods for manipulating video descriptions to add corrections
+    /// </summary>
     internal static class YouTubeDescriptionCorrectionsPublisher
     {
-
+        // Generate the updated video description with the corrections text
         public static string GetUpdatedDescription(string description, string corrections, YouTubeConfiguration config)
         {
             if (!string.IsNullOrWhiteSpace(description))
@@ -18,6 +20,7 @@ namespace YouRata.YouTubeSync.YouTube
                 int existingCorrectionsStart = description.IndexOf(YouTubeConstants.CorrectionBegin);
                 if (existingCorrectionsStart >= 0)
                 {
+                    // There is already a corrections section in the description
                     int existingCorrectionsLength = 0;
                     int existingCorrectionsEnd = description.IndexOf(config.CorrectionsCloser, existingCorrectionsStart);
                     if (existingCorrectionsEnd > 0)
@@ -28,7 +31,8 @@ namespace YouRata.YouTubeSync.YouTube
                     {
                         existingCorrectionsLength = (description.Length - existingCorrectionsStart);
                     }
-                    description = description.Remove(existingCorrectionsStart, existingCorrectionsLength);
+                    // Remove the existing corrections section
+                    description = description.Remove(existingCorrectionsStart, Math.Max(0, existingCorrectionsLength));
                 }
                 if ((corrections.Length + description.Length) > YouTubeConstants.MaxDescriptionLength && config.TruncateDescriptionOverflow)
                 {

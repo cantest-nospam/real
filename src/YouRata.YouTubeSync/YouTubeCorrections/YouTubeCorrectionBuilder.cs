@@ -1,17 +1,18 @@
+// Copyright (c) 2023 battleship-systems.
+// Licensed under the MIT license.
+
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using YouRata.Common.Configuration.YouTube;
 using YouRata.Common.YouTube;
 using YouRata.YouTubeSync.PublishedErrata;
 
 namespace YouRata.YouTubeSync.YouTubeCorrections
 {
+    /// <summary>
+    /// Builds an YouTube correction string from an errata bulletin
+    /// </summary>
     internal sealed class YouTubeCorrectionBuilder
     {
-        // --- YouTube error correction template ---
         private readonly YouTubeConfiguration _configuration;
         private readonly PublishedVideoErrata _errata;
 
@@ -39,17 +40,17 @@ namespace YouRata.YouTubeSync.YouTubeCorrections
             correctionsTemplate = $"{YouTubeConstants.CorrectionBegin}{Environment.NewLine}";
         }
 
-        private void AddErrata(ref string correctionsTemplate)
-        {
-            foreach(string errataEntry in _errata.ErrataEntries)
-            {
-                correctionsTemplate += errataEntry + Environment.NewLine;
-            }
-        }
-
         private void AddCloser(ref string correctionsTemplate)
         {
             correctionsTemplate += _configuration.CorrectionsCloser + Environment.NewLine;
+        }
+
+        private void AddErrata(ref string correctionsTemplate)
+        {
+            foreach (string errataEntry in _errata.ErrataEntries)
+            {
+                correctionsTemplate += errataEntry + Environment.NewLine;
+            }
         }
     }
 }

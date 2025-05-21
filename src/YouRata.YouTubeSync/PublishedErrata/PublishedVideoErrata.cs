@@ -1,11 +1,16 @@
+// Copyright (c) 2023 battleship-systems.
+// Licensed under the MIT license.
+
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
 namespace YouRata.YouTubeSync.PublishedErrata
 {
+    /// <summary>
+    /// Finds published errata from a bulletin file
+    /// </summary>
     internal class PublishedVideoErrata
     {
         private readonly List<string> _errataEntries;
@@ -69,7 +74,8 @@ namespace YouRata.YouTubeSync.PublishedErrata
 
         private static string StripTimeValueMarks(string timeMarkedBulletin)
         {
-            return Regex.Replace(timeMarkedBulletin, @"(?m)^(\d{1,2}:)?\d{1,2}:\d{2}\s*-+\s*$", string.Empty);
+            return Regex.Replace(timeMarkedBulletin,
+                @"(?m)^(\d{1,2}:)?\d{1,2}:\d{2}\s*-+\s*$", string.Empty);
         }
 
         public List<string> ErrataEntries => _errataEntries;
