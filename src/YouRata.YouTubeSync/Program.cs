@@ -32,7 +32,8 @@ using static YouRata.Common.Proto.MilestoneActionIntelligence.Types;
 /// Each YouTube video description is updated to add a link to the errata bulletin on GitHub.
 /// Control is started from the Run YouRata action in the event the TOKEN_RESPONSE environment
 /// variable contains a valid token response. Channels with extensive video history will require
-/// multiple days/runs to create all errata bulletins.
+/// multiple days/runs to create all errata bulletins. When a bulletin file commit is pushed
+/// the video description is updated to contain the corrections.
 /// ---------------------------------------------------------------------------------------------
 
 using (YouTubeSyncCommunicationClient client = new YouTubeSyncCommunicationClient())
@@ -140,6 +141,7 @@ using (YouTubeSyncCommunicationClient client = new YouTubeSyncCommunicationClien
             {
                 if (!config.ActionCutOuts.DisableYouTubeCorrections)
                 {
+                    // Get any changed files in the errata directory
                     List<GitHubCommitFile> pushedErrataFiles = GitHubAPIClient.GetCommitChanges(
                         actionEnvironment,
                         workflow.EventBefore,
@@ -149,23 +151,26 @@ using (YouTubeSyncCommunicationClient client = new YouTubeSyncCommunicationClien
                     foreach (GitHubCommitFile pushedErrataFile in pushedErrataFiles)
                     {
                         ContentHelper fileHelper = new ContentHelper();
+                        // Read the errata bulletin file from our checkout
                         string? errataContent = fileHelper.GetTextContent(pushedErrataFile.Filename, client.LogMessage);
                         if (errataContent == null) continue;
+                        // Extract only the published errata
                         PublishedVideoErrata errataList = PublishedVideoErrata.BuildFromBulletin(errataContent);
                         YouTubeCorrectionBuilder correctionBuilder = new YouTubeCorrectionBuilder(config.YouTube, errataList);
+                        // Assume the name of the errata markdown file is the video ID
                         string videoId = Path.GetFileNameWithoutExtension(pushedErrataFile.Filename);
                         if (string.IsNullOrEmpty(videoId)) continue;
                         Video? video = YouTubeVideoHelper.GetVideo(videoId, milestoneInt, ytService, client);
                         client.Keepalive();
                         if (video == null) continue;
+                        // Append the corrections to the description
                         string newDescription =
                             YouTubeDescriptionCorrectionsPublisher.GetUpdatedDescription(video.Snippet.Description, correctionBuilder.Build(),
                                 config.YouTube);
                         if (newDescription.Length <= YouTubeConstants.MaxDescriptionLength)
                         {
                             // Enough characters are left to update the description
-                            YouTubeVideoHelper.UpdateVideoDescription(video, newDescription, milestoneInt, ytService,
-                                client);
+                            YouTubeVideoHelper.UpdateVideoDescription(video, newDescription, milestoneInt, ytService, client);
                         }
 
                         client.Keepalive();
